@@ -37,6 +37,11 @@ static const struct device *motion_gpio_dev;
 /* ==== Touch status flag ==== */
 static bool touched = false;
 
+static int16_t sum_dx = 0, sum_dy = 0;
+static uint8_t sample_cnt = 0;
+static bool last_capslock = false;
+static uint32_t last_read_time = 0;
+
 /* =========================
  *   Data & Config structs
  * ========================= */
@@ -88,58 +93,112 @@ static int hid_indicators_listener(const zmk_event_t *eh) {
 /* =========================
  *   Work handler (polling)
  * ========================= */
+
 static void a320_poll_work_handler(struct k_work *work) {
     struct k_work_delayable *dwork = CONTAINER_OF(work, struct k_work_delayable, work);
     struct a320_data *data = CONTAINER_OF(dwork, struct a320_data, poll_work);
     const struct device *dev = data->dev;
+
     int pin_state = gpio_pin_get(motion_gpio_dev, MOTION_GPIO_PIN);
+
+    bool capslock = current_indicators & HID_INDICATORS_CAPS_LOCK;
+
+    /* ======== Clear CapsLock residual scroll data ======== */
+    if (last_capslock && !capslock) {
+        sum_dx = 0;
+        sum_dy = 0;
+        sample_cnt = 0;
+    }
+    last_capslock = capslock;
+    /* ====================================================== */
 
     if (pin_state == 0) {
         int16_t dx = 0, dy = 0;
+
         if (a320_read_motion(dev, &dx, &dy) == 0) {
-            if (dx || dy) {
-                bool capslock = current_indicators & HID_INDICATORS_CAPS_LOCK;
 
-                if (ctrl_pressed) {
-                    dx /= 2;
-                    dy /= 2;
+            if (ctrl_pressed) {
+                dx /= 2;
+                dy /= 2;
+            }
+
+            /* === Normal cursor movement when CapsLock is off === */
+            if (!capslock) {
+                uint8_t tp_led_brt = indicator_tp_get_last_valid_brightness();
+                float tp_factor = 0.4f + 0.01f * tp_led_brt;
+
+                dx = dx * 3 / 2 * tp_factor;
+                dy = dy * 3 / 2 * tp_factor;
+
+                input_report_rel(dev, INPUT_REL_X, dx, false, K_FOREVER);
+                input_report_rel(dev, INPUT_REL_Y, dy, true, K_FOREVER);
+
+                touched = true;
+            }
+
+            /* === Scroll mode when CapsLock is on === */
+            else {
+
+                uint32_t now = k_uptime_get_32();
+
+                /* --- Condition 1: dx=0 && dy=0 → clear accumulated scroll, avoid direction residue
+                 * --- */
+                if (dx == 0 && dy == 0) {
+                    sum_dx = 0;
+                    sum_dy = 0;
+                    sample_cnt = 0;
                 }
 
-                if (!capslock) {
-                    uint8_t tp_led_brt = indicator_tp_get_last_valid_brightness();
-                    float tp_factor = 0.4f + 0.01f * tp_led_brt;
-                    dx = dx * 3 / 2 * tp_factor;
-                    dy = dy * 3 / 2 * tp_factor;
+                /* --- Condition 2: time since last read > 50ms → treat as new swipe, clear
+                   accumulation --- */
+                else if (now - last_read_time > 50) {
+                    sum_dx = 0;
+                    sum_dy = 0;
+                    sample_cnt = 0;
                 }
-                if (capslock) {
+
+                /* Update timestamp (must be after successful data read) */
+                last_read_time = now;
+
+                /* Normal accumulation logic */
+                sum_dx += dx;
+                sum_dy += dy;
+                sample_cnt++;
+
+                uint8_t threshold = 40 / CONFIG_A320_POLL_INTERVAL_MS;
+
+                if (sample_cnt >= threshold) {
+                    int16_t sx = sum_dx;
+                    int16_t sy = sum_dy;
+
+                    sum_dx = 0;
+                    sum_dy = 0;
+                    sample_cnt = 0;
+
                     int16_t scroll_x = 0, scroll_y = 0;
-                    if (abs(dy) >= 128) {
-                        scroll_x = -dx / 24;
-                        scroll_y = -dy / 24;
-                    } else if (abs(dy) >= 64) {
-                        scroll_x = -dx / 16;
-                        scroll_y = -dy / 16;
-                    } else if (abs(dy) >= 32) {
-                        scroll_x = -dx / 12;
-                        scroll_y = -dy / 12;
-                    } else if (abs(dy) >= 21) {
-                        scroll_x = -dx / 8;
-                        scroll_y = -dy / 8;
-                    } else if (abs(dy) >= 3) {
-                        scroll_x = (dx > 0) ? -1 : (dx < 0) ? 1 : 0;
-                        scroll_y = (dy > 0) ? -1 : (dy < 0) ? 1 : 0;
+
+                    if (abs(sy) >= 128) {
+                        scroll_x = -sx / 24;
+                        scroll_y = -sy / 24;
+                    } else if (abs(sy) >= 64) {
+                        scroll_x = -sx / 16;
+                        scroll_y = -sy / 16;
+                    } else if (abs(sy) >= 32) {
+                        scroll_x = -sx / 12;
+                        scroll_y = -sy / 12;
+                    } else if (abs(sy) >= 21) {
+                        scroll_x = -sx / 8;
+                        scroll_y = -sy / 8;
+                    } else if (abs(sy) >= 3) {
+                        scroll_x = (sx > 0) ? -1 : (sx < 0) ? 1 : 0;
+                        scroll_y = (sy > 0) ? -1 : (sy < 0) ? 1 : 0;
                     } else {
-                        scroll_x = (dx > 0) ? -1 : (dx < 0) ? 1 : 0;
+                        scroll_x = (sx > 0) ? -1 : (sx < 0) ? 1 : 0;
                         scroll_y = 0;
                     }
+
                     input_report_rel(dev, INPUT_REL_HWHEEL, -scroll_x, false, K_FOREVER);
                     input_report_rel(dev, INPUT_REL_WHEEL, scroll_y, true, K_FOREVER);
-                    k_sleep(K_MSEC(40));
-                } else {
-                    LOG_DBG("Motion dx=%d dy=%d", dx, dy);
-                    input_report_rel(dev, INPUT_REL_X, dx, false, K_FOREVER);
-                    input_report_rel(dev, INPUT_REL_Y, dy, true, K_FOREVER);
-                    touched = true;
                 }
             }
         }
