@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2025 ZitaoTech
- *
+ * Modified for Arabic Layout by Gemini
  * SPDX-License-Identifier: MIT
  */
 
@@ -17,149 +17,156 @@
 #define SYM 1
 #define UPPER 2
 #define MEDIA 3
+#define ARABIC 4
 
-#define SL_MO(layer) &sl_mo layer layer //tap -> sticky layer, hold -> momentary layer
+#define SL_MO(layer) &sl_mo layer layer
 
 &sl {
     release-after-ms = <3000>;
-    };
+};
 
 / {
     behaviors {
+        /* تعريفات المصنع الأصلية */
         td0: tap_dance_0 {
             compatible = "zmk,behavior-tap-dance";
             #binding-cells = <0>;
             tapping-term-ms = <400>;
             bindings = <&mkp LCLK>, <&bt BT_CLR>;
         };
-    };
 
-    behaviors {
         td_boot_out: td_boot_out {
             compatible = "zmk,behavior-tap-dance";
             #binding-cells = <0>;
-            tapping-term-ms = <400>;           
+            tapping-term-ms = <400>;            
             bindings = <&bootloader>, <&out OUT_TOG>;
         };
-    };
 
-    behaviors {
-        tdc_to_SYM: td_comma_to_layer {
-            compatible = "zmk,behavior-tap-dance";
-            #binding-cells = <0>;
-            tapping-term-ms = <400>;
-            bindings = <&kp SEMI>, <&to SYM>;
-        };
-    };
-
-    behaviors {
         tdc_to_MEDIA: td_mute_to_layer {
             compatible = "zmk,behavior-tap-dance";
             #binding-cells = <0>;
             tapping-term-ms = <400>;
             bindings = <&kp C_MUTE>, <&to MEDIA>;
         };
-    };
 
-    behaviors {
-        hm: homerow_mods {
+        sl_mo: behavior_sl_mo {
             compatible = "zmk,behavior-hold-tap";
             #binding-cells = <2>;
-            tapping-term-ms = <400>;
-            bindings = <&kp &kp>;
+            flavor = "hold-preferred";      
+            tapping-term-ms = <450>;       
+            bindings = <&mo &sl>;          
         };
-    };
-    
-    behaviors {
-    sl_mo: behavior_sl_mo {
-        compatible = "zmk,behavior-hold-tap";
-        #binding-cells = <2>;
-        flavor = "hold-preferred";      /* 单击优先 */
-        tapping-term-ms = <450>;       /* 长按阈值 */
-        bindings = <&mo &sl>;          /* hold=MO, tap=SL */
-        };
-    };
 
-    behaviors {
-    sk_kp: behavior_sk_kp {
-        compatible = "zmk,behavior-hold-tap";
-        #binding-cells = <2>;
-        flavor = "hold-preferred";      
-        tapping-term-ms = <450>;       
-        bindings = <&kp &sk>;          /* hold=kp, tap=sticky key */
-        };
-    };
-
-    behaviors {
-        bhm: balanced_homerow_mods {
+        sk_kp: behavior_sk_kp {
             compatible = "zmk,behavior-hold-tap";
             #binding-cells = <2>;
-            flavor = "balanced";
-            tapping-term-ms = <400>;
-            bindings = <&kp>, <&kp>;
+            flavor = "hold-preferred";      
+            tapping-term-ms = <450>;        
+            bindings = <&kp &sk>;          
         };
+
+        /* --------------------------------------------------------- */
+        /* إضافات اللغة العربية (The Golden Code Additions)         */
+        /* --------------------------------------------------------- */
+
+        /* زر الدولار: ضغطة واحدة $ / ضغطتان للتحويل للعربي */
+        td_dol: tap_dance_dollar {
+            compatible = "zmk,behavior-tap-dance";
+            label = "TAP_DANCE_DOLLAR";
+            #binding-cells = <0>;
+            tapping-term-ms = <300>;
+            bindings = <&kp DLLR>, <&tog ARABIC>;
+        };
+
+        /* الحروف الذكية (ضغطة سريعة / ضغطة مطولة) */
+        /* ي / د */
+        ar_d: ar_d { compatible = "zmk,behavior-hold-tap"; label = "AR_D"; #binding-cells = <2>; tapping-term-ms = <200>; quick-tap-ms = <0>; flavor = "tap-preferred"; bindings = <&kp>, <&kp>; };
+        
+        /* ت / ج */
+        ar_j: ar_j { compatible = "zmk,behavior-hold-tap"; label = "AR_J"; #binding-cells = <2>; tapping-term-ms = <200>; quick-tap-ms = <0>; flavor = "tap-preferred"; bindings = <&kp>, <&kp>; };
+        
+        /* ر / ز */
+        ar_v: ar_v { compatible = "zmk,behavior-hold-tap"; label = "AR_V"; #binding-cells = <2>; tapping-term-ms = <200>; quick-tap-ms = <0>; flavor = "tap-preferred"; bindings = <&kp>, <&kp>; };
+        
+        /* م / ك */
+        ar_l: ar_l { compatible = "zmk,behavior-hold-tap"; label = "AR_L"; #binding-cells = <2>; tapping-term-ms = <200>; quick-tap-ms = <0>; flavor = "tap-preferred"; bindings = <&kp>, <&kp>; };
+        
+        /* ص / و */
+        ar_w: ar_w { compatible = "zmk,behavior-hold-tap"; label = "AR_W"; #binding-cells = <2>; tapping-term-ms = <200>; quick-tap-ms = <0>; flavor = "tap-preferred"; bindings = <&kp>, <&kp>; };
+        
+        /* ث / ذ */
+        ar_e: ar_e { compatible = "zmk,behavior-hold-tap"; label = "AR_E"; #binding-cells = <2>; tapping-term-ms = <200>; quick-tap-ms = <0>; flavor = "tap-preferred"; bindings = <&kp>, <&kp>; };
     };
 
     keymap {
         compatible = "zmk,keymap";
 
         default_layer {
-
             bindings = <
-//         --------------------------------------------------------------------------------------------------------------------------         
-//         |    Shoulder Key1    |                                                                             |    Shoulder Key2    |     
-// |         Call key      |      Blackberry Key        |    Trackpad    |             Back Key                |             Endcall Key          |
-// |     Q      |     W    |     E    |     R    |      T      |       Y        |       U        |        I        |       O      |      P        |     
-// |     A      |     S    |     D    |     F    |      G      |       H        |       J        |        K        |       L      |      ←        |  
-// |     alt    |     Z    |     X    |     C    |      V      |       B        |       N        |        M        |       $      |    Enter      |   
-//        |         aA     |         0           |           SPACE              |         SYM         |        aA          |       
-//        -----------------------------------------------------------------------------------------------------------------
+/* ------------------------------------------------------------------------------------------------------------------------- */
+/* |    Shoulder Key1    |                                                                         |    Shoulder Key2    |   */
+/* |         Call key       |      Blackberry Key       |    Trackpad    |             Back Key               |             Endcall Key          | */
+/* |      Q       |      W    |      E    |      R    |       T       |       Y        |       U        |        I        |       O       |       P        |      */
+/* |      A       |      S    |      D    |      F    |       G       |       H        |       J        |        K        |       L       |       ←        |   */
+/* |      alt     |      Z    |      X    |      C    |       V       |       B        |       N        |        M        |       $       |     Enter      |    */
+/* |        |          aA      |          0           |            SPACE              |          SYM          |        aA           |        */
+/* ----------------------------------------------------------------------------------------------------------------- */
 
-                 &mkp LCLK                                                                                          &mkp RCLK
-    &kp CLCK                &kp LGUI                            &mkp LCLK                          &mt ESC K_BACK                    &mt F4 TAB
-    &kp Q        &kp W      &kp E       &kp R     &kp T         &kp Y             &kp U            &kp I            &kp O            &kp P
-    &kp A        &kp S      &kp D       &kp F     &kp G         &kp H             &kp J            &kp K            &kp L            &kp BSPC
-    &kp LSHFT    &kp Z      &kp X       &kp C     &kp V         &kp B             &kp N            &kp M            &tdc_to_SYM      &kp ENTER
-    &sk_kp LCTRL  LCTRL     &kp LALT                            &kp SPACE                          &sl_mo 1 1                        &sl_mo 2 2
+                                 &mkp LCLK                                                                                         &mkp RCLK
+    &kp CLCK                &kp LGUI                            &mkp LCLK                           &mt ESC K_BACK                     &mt F4 TAB
+    &kp Q        &kp W      &kp E       &kp R     &kp T         &kp Y              &kp U            &kp I            &kp O             &kp P
+    &kp A        &kp S      &kp D       &kp F     &kp G         &kp H              &kp J            &kp K            &kp L             &kp BSPC
+    &kp LSHFT    &kp Z      &kp X       &kp C     &kp V         &kp B              &kp N            &kp M            &td_dol           &kp ENTER
+    &sk_kp LCTRL LCTRL      &kp LALT                            &kp SPACE                           &sl_mo 1 1                         &sl_mo 2 2
             >;
         };
 
 
         sym_layer {
-
             bindings = <        
-                 &kp C_VOL_UP                                                                                       &kp C_VOL_DN
-    &kp PSCRN               &kp C_AC_SEARCH                     &mkp LCLK                          &kp F5                            &kp F12 
-    &kp HASH     &kp N1     &kp N2      &kp N3    &mt LBKT LPAR &mt RBKT RPAR     &kp UNDER        &kp MINUS        &kp PLUS         &kp AT
-    &kp STAR     &kp N4     &kp N5      &kp N6    &kp SLASH     &kp COLON         &kp SEMI         &kp APOS         &kp DQT          &kp DEL
-    &kp LSHFT    &kp N7     &kp N8      &kp N9    &kp QMARK     &kp EXCL          &kp COMMA        &kp DOT          &tdc_to_MEDIA    &kp ENTER
-    &kp LCTRL               &kp N0                              &kp SPACE                          &to DEFAULT                       &sl_mo 2 2
+                 &kp C_VOL_UP                                                                                         &kp C_VOL_DN
+    &kp PSCRN               &kp C_AC_SEARCH                 &mkp LCLK                           &kp F5                                 &kp F12 
+    &kp HASH     &kp N1     &kp N2      &kp N3    &mt LBKT LPAR &mt RBKT RPAR      &kp UNDER         &kp MINUS        &kp PLUS          &kp AT
+    &kp STAR     &kp N4     &kp N5      &kp N6    &kp SLASH     &kp COLON          &kp SEMI          &kp APOS         &kp DQT           &kp DEL
+    &kp LSHFT    &kp N7     &kp N8      &kp N9    &kp QMARK     &kp EXCL           &kp COMMA         &kp DOT          &tdc_to_MEDIA     &kp ENTER
+    &kp LCTRL               &kp N0                              &kp SPACE                           &to DEFAULT                        &sl_mo 2 2
             >;
         };
 
         upper_layer {
-
             bindings = <
-                 &msc SCRL_UP                                                                               &msc SCRL_DOWN
-    &bt BT_SEL 0            &bt BT_SEL 1                                  &td0                              &bt BT_SEL 2                     &bt BT_SEL 3
-    &none        &kp UP     &kp C_EJECT &sys_reset      &ext_power EP_TOG &none            &kp LT           &kp GT          &kp PIPE         &kp KP_EQUAL
-    &kp LEFT     &kp DOWN   &kp RIGHT   &none           &kp BSLH          &kp AMPS         &kp LBRC         &kp RBRC        &kp CARET        &kp BSPC
-    &kp LSHFT    &none      &none       &rgb_ug RGB_BRD &bl BL_DEC        &rgb_ug RGB_TOG  &bl BL_INC       &rgb_ug RGB_BRI &td_boot_out     &kp ENTER
-    &kp LCTRL               &kp LALT                                      &kp  SPACE                        &to DEFAULT                      &to DEFAULT
+                 &msc SCRL_UP                                                                                         &msc SCRL_DOWN
+    &bt BT_SEL 0            &bt BT_SEL 1                        &td0                                &bt BT_SEL 2                       &bt BT_SEL 3
+    &none        &kp UP     &kp C_EJECT &sys_reset      &ext_power EP_TOG &none            &kp LT           &kp GT          &kp PIPE          &kp KP_EQUAL
+    &kp LEFT     &kp DOWN   &kp RIGHT   &none           &kp BSLH          &kp AMPS         &kp LBRC         &kp RBRC        &kp CARET         &kp BSPC
+    &kp LSHFT    &none      &none       &rgb_ug RGB_BRD &bl BL_DEC        &rgb_ug RGB_TOG  &bl BL_INC       &rgb_ug RGB_BRI &td_boot_out      &kp ENTER
+    &kp LCTRL               &kp LALT                                      &kp SPACE                         &to DEFAULT                        &to DEFAULT
             >;
         };
 
         media_layer {
-
             bindings = <
-                 &none                                                                                        &none
-    &none                  &none                               &none                         &none                            &none
-    &none        &none     &none       &none      &none        &none         &none           &none           &none            &none
-    &none        &none     &none       &none      &none        &none         &none           &none           &none            &none
-    &none        &none     &none       &none      &none        &none         &none           &none           &to DEFAULT      &none
-    &none                  &none                               &none                         &to DEFAULT                      &to DEFAULT
+                 &none                                                                                                &none
+    &none                   &none                               &none                               &none                                  &none
+    &none        &none      &none       &none       &none         &none            &none            &none            &none             &none
+    &none        &none      &none       &none       &none         &none            &none            &none            &none             &none
+    &none        &none      &none       &none       &none         &none            &none            &none            &to DEFAULT       &none
+    &none                   &none                                 &none                                 &to DEFAULT                        &to DEFAULT
+            >;
+        };
+
+        /* --------------------------------------------------------- */
+        /* Arabic Layer (Layer 4)                                    */
+        /* --------------------------------------------------------- */
+        arabic_layer {
+            bindings = <
+                 &trans                                                                                               &trans
+    &trans                  &trans                              &trans                              &trans                                 &trans
+    &kp Q        &ar_w COMMA W &ar_e GRAVE E &kp R      &kp T      &kp Y      &kp U      &kp I      &kp O      &kp P
+    &kp A        &kp S         &ar_d RBKT D  &kp F      &kp G      &kp H      &ar_j LBKT J &kp K    &ar_l SEMI L &kp BSPC
+    &kp LSHFT    &kp Z         &kp X         &kp C      &ar_v DOT V &kp B     &kp N      &kp M      &td_dol    &kp RET
+    &trans                  &trans                              &kp SPACE                           &to DEFAULT                        &trans
             >;
         };
     };
 };
-
